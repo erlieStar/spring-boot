@@ -90,11 +90,15 @@ public class AutoConfigurationImportSelector implements DeferredImportSelector, 
 
 	@Override
 	public String[] selectImports(AnnotationMetadata annotationMetadata) {
+        // 1. 是否开启自动配置，默认开启
 		if (!isEnabled(annotationMetadata)) {
 			return NO_IMPORTS;
 		}
+        // 2. 从META-INF/spring-autoconfigure-metadata.properties文件中载入属性配置，后续过滤自动注入的类要用
+        // 在spring-boot-autoconfigure-x.x.RELEASE.jar包中
 		AutoConfigurationMetadata autoConfigurationMetadata = AutoConfigurationMetadataLoader
 				.loadMetadata(this.beanClassLoader);
+        // 3. 获取需要自动注入的类的全类名
 		AutoConfigurationEntry autoConfigurationEntry = getAutoConfigurationEntry(autoConfigurationMetadata,
 				annotationMetadata);
 		return StringUtils.toStringArray(autoConfigurationEntry.getConfigurations());
@@ -112,13 +116,20 @@ public class AutoConfigurationImportSelector implements DeferredImportSelector, 
 		if (!isEnabled(annotationMetadata)) {
 			return EMPTY_ENTRY;
 		}
+		// 将注解元信息封装成注解属性对象
 		AnnotationAttributes attributes = getAttributes(annotationMetadata);
+        // 获取到配置类的全路径字符串集合（从）
 		List<String> configurations = getCandidateConfigurations(annotationMetadata, attributes);
+        // 需要排除的自动装配类（springboot的主类上 @SpringBootApplication(exclude = {com.demo.XXX.class})指定的排除的自动装配类）
 		configurations = removeDuplicates(configurations);
 		Set<String> exclusions = getExclusions(annotationMetadata, attributes);
 		checkExcludedClasses(configurations, exclusions);
+        // 将需要排除的类从 configurations remove掉
 		configurations.removeAll(exclusions);
+        // 过滤掉不需要装配的类。过滤的逻辑有很多，比如我们常用的@ConditionXXX注解
 		configurations = filter(configurations, autoConfigurationMetadata);
+		// 现在已经找到所有需要被应用的候选配置类
+        // 广播事件 AutoConfigurationImportEvent
 		fireAutoConfigurationImportEvents(configurations, exclusions);
 		return new AutoConfigurationEntry(configurations, exclusions);
 	}
